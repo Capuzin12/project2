@@ -1,0 +1,15 @@
+{
+  "name": "0123",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "News Aggregator - навчальний проєкт на Vanilla JS",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Агрегатор новин - отримуйте актуальні новини з різних джерел">
+    <title>News Aggregator - Агрегатор новин</title>
+    <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+    <!-- Головний контейнер -->
+    <div class="container">
+        <!-- Шапка сайту -->
+        <header class="header">
+            <div class="header__content">
+                <div>
+                    <h1 class="header__title">📰 News Aggregator</h1>
+                    <p class="header__subtitle">Агрегатор новин з різних джерел</p>
+                </div>
+                <div class="header__actions">
+                    <button class="header__button" id="themeToggle" aria-label="Перемкнути тему">
+                        🌙 Темна тема
+                    </button>
+                    <button class="header__button" id="favoritesButton" aria-label="Переглянути збережені новини">
+                        ❤️ Вибране
+                    </button>
+                    <button class="header__button header__button--secondary" id="backToNewsButton" style="display: none;" aria-label="Повернутися до новин">
+                        ← До новин
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Форма пошуку та фільтрації -->
+        <section class="search-section">
+            <form class="search-form" id="searchForm" novalidate>
+                <div class="search-form__group">
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        class="search-form__input" 
+                        placeholder="Введіть ключові слова для пошуку..."
+                        aria-label="Пошук новин"
+                    >
+                    <button type="submit" class="search-form__button" aria-label="Виконати пошук">
+                        🔍 Пошук
+                    </button>
+                    <button type="button" id="resetSearchButton" class="search-form__button search-form__button--reset" aria-label="Скинути пошук" style="display: none;">
+                        ✕ Скинути
+                    </button>
+                </div>
+                <div class="error-message" id="searchError" role="alert" aria-live="polite"></div>
+            </form>
+
+            <!-- Фільтри за категоріями та сортування -->
+            <div class="filters">
+                <div class="filters__row">
+                    <div class="filters__group">
+                        <label for="categoryFilter" class="filters__label">Категорія</label>
+                        <select id="categoryFilter" class="filters__select" aria-label="Фільтр за категоріями">
+                            <option value="all">Всі категорії</option>
+                            <option value="technology">Технології</option>
+                            <option value="sports">Спорт</option>
+                            <option value="business">Бізнес</option>
+                            <option value="entertainment">Розваги</option>
+                            <option value="health">Здоров'я</option>
+                            <option value="science">Наука</option>
+                        </select>
+                    </div>
+                    <div class="filters__group">
+                        <label for="sourceFilter" class="filters__label">Джерело</label>
+                        <select id="sourceFilter" class="filters__select" aria-label="Фільтр за джерелами">
+                            <option value="all">Всі джерела</option>
+                            <option value="BBC">BBC</option>
+                            <option value="CNN">CNN</option>
+                            <option value="Local News">Local News</option>
+                        </select>
+                    </div>
+                    <div class="filters__group">
+                        <label for="dateFilter" class="filters__label">Дата</label>
+                        <select id="dateFilter" class="filters__select" aria-label="Фільтр за датою">
+                            <option value="all">Всі дати</option>
+                            <option value="today">Сьогодні</option>
+                            <option value="week">Тиждень</option>
+                            <option value="month">Місяць</option>
+                        </select>
+                    </div>
+                    <div class="filters__group">
+                        <label for="sortFilter" class="filters__label">Сортування</label>
+                        <select id="sortFilter" class="filters__select" aria-label="Сортування новин">
+                            <option value="newest">Найновіші</option>
+                            <option value="oldest">Найстаріші</option>
+                        </select>
+                    </div>
+                    <div class="filters__group">
+                        <label for="itemsPerPage" class="filters__label">На сторінці</label>
+                        <select id="itemsPerPage" class="filters__select" aria-label="Кількість новин на сторінці">
+                            <option value="6">6</option>
+                            <option value="9">9</option>
+                            <option value="12">12</option>
+                            <option value="18">18</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Статистика -->
+            <div class="statistics" id="statistics" hidden>
+                <div class="statistics__item">
+                    <span class="statistics__label">Всього новин:</span>
+                    <span class="statistics__value" id="totalNews">0</span>
+                </div>
+                <div class="statistics__item">
+                    <span class="statistics__label">По категоріях:</span>
+                    <span class="statistics__value" id="categoriesStats">-</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Секція завантаження -->
+        <div class="loading" id="loading" aria-live="polite" aria-busy="true" hidden>
+            <div class="loading__spinner"></div>
+            <p class="loading__text">Завантаження новин...</p>
+        </div>
+
+        <!-- Секція помилок -->
+        <div class="error-container" id="errorContainer" role="alert" aria-live="assertive" hidden>
+            <p class="error-container__message" id="errorMessage"></p>
+            <button class="error-container__button" id="retryButton">Спробувати ще раз</button>
+        </div>
+
+        <!-- Основний контент - сітка новин -->
+        <main class="main-content">
+            <!-- Перемикач виду відображення -->
+            <div class="view-toggle">
+                <label class="view-toggle__label">Вид відображення:</label>
+                <div class="view-toggle__buttons">
+                    <button class="view-toggle__button view-toggle__button--active" id="gridViewButton" aria-label="Сітка">
+                        <span>⊞</span> Сітка
+                    </button>
+                    <button class="view-toggle__button" id="listViewButton" aria-label="Список">
+                        <span>☰</span> Список
+                    </button>
+                </div>
+            </div>
+            <div class="news-grid" id="newsGrid" role="region" aria-label="Список новин">
+                <!-- Картки новин будуть додані динамічно через JavaScript -->
+            </div>
+
+            <!-- Повідомлення про відсутність результатів -->
+            <div class="no-results" id="noResults" hidden>
+                <p class="no-results__text" id="noResultsText">Новин не знайдено. Спробуйте змінити параметри пошуку.</p>
+            </div>
+        </main>
+
+        <!-- Пагінація -->
+        <nav class="pagination" id="pagination" aria-label="Навігація по сторінкам" hidden>
+            <button 
+                class="pagination__button pagination__button--prev" 
+                id="prevButton"
+                aria-label="Попередня сторінка"
+                disabled
+            >
+                ← Назад
+            </button>
+            <div class="pagination__info">
+                <span class="pagination__current" id="currentPage">1</span>
+                <span class="pagination__separator">з</span>
+                <span class="pagination__total" id="totalPages">1</span>
+            </div>
+            <button 
+                class="pagination__button pagination__button--next" 
+                id="nextButton"
+                aria-label="Наступна сторінка"
+                disabled
+            >
+                Далі →
+            </button>
+        </nav>
+    </div>
+
+    <!-- Модальне вікно для детального перегляду новини -->
+    <div class="modal" id="newsModal" role="dialog" aria-labelledby="modalTitle" aria-hidden="true">
+        <div class="modal__overlay" id="modalOverlay"></div>
+        <div class="modal__content">
+            <button class="modal__close" id="modalClose" aria-label="Закрити модальне вікно">×</button>
+            <div class="modal__header">
+                <img class="modal__image" id="modalImage" src="" alt="" style="display: none;">
+                <div class="modal__meta">
+                    <span class="modal__category" id="modalCategory"></span>
+                    <h2 class="modal__title" id="modalTitle"></h2>
+                    <div class="modal__source-date">
+                        <span class="modal__source" id="modalSource"></span>
+                        <span class="modal__date" id="modalDate"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal__body">
+                <p class="modal__description" id="modalDescription"></p>
+                <div class="modal__actions">
+                    <a class="modal__link" id="modalLink" href="#" target="_blank" rel="noopener noreferrer">
+                        Читати повну статтю →
+                    </a>
+                    <button class="modal__favorite" id="modalFavorite" aria-label="Додати до обраного">
+                        🤍
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Форма реєстрації/логіну -->
+    <section class="auth-section hidden" id="authSection">
+        <form class="auth-form" id="authForm" novalidate>
+            <h2 class="auth-form__title">Реєстрація</h2>
+
+            <label for="regEmail" class="auth-form__label">Email</label>
+            <input type="email" id="regEmail" class="auth-form__input" placeholder="Введіть email" required autocomplete="username">
+
+            <label for="regPassword" class="auth-form__label">Пароль</label>
+            <input type="password" id="regPassword" class="auth-form__input" placeholder="Введіть пароль" required autocomplete="new-password">
+
+            <label for="regRepeatPassword" class="auth-form__label">Повторіть пароль</label>
+            <input type="password" id="regRepeatPassword" class="auth-form__input" placeholder="Повторіть пароль" required autocomplete="new-password">
+
+            <div class="auth-form__error" id="authError"></div>
+            <button type="submit" class="auth-form__button">Зареєструватися</button>
+            <button type="button" class="auth-form__switch" id="switchToLogin">Вже маєте акаунт? Увійти</button>
+        </form>
+        <form class="auth-form hidden" id="loginForm" novalidate>
+            <h2 class="auth-form__title">Вхід</h2>
+            <label for="loginEmail" class="auth-form__label">Email</label>
+            <input type="email" id="loginEmail" class="auth-form__input" placeholder="Введіть email" required autocomplete="username">
+
+            <label for="loginPassword" class="auth-form__label">Пароль</label>
+            <input type="password" id="loginPassword" class="auth-form__input" placeholder="Введіть пароль" required autocomplete="current-password">
+
+            <div class="auth-form__error" id="loginError"></div>
+            <button type="submit" class="auth-form__button">Увійти</button>
+            <button type="button" class="auth-form__switch" id="switchToRegister">Немає акаунту? Зареєструватися</button>
+        </form>
+    </section>
+    <!-- Підключення JavaScript модулів -->
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>
