@@ -58,7 +58,6 @@ export default async function handler(req, res) {
       url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(q)}&language=${lang}&pageSize=${pageSize}&apiKey=${NEWS_API_KEY}`;
     }
   }
-
   try {
     const r = await fetch(url);
     const data = await r.json();
