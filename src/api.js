@@ -1,12 +1,17 @@
 const NEWS_API_KEY = import.meta.env.VITE_NEWS_API_KEY || '';
 const GNEWS_API_KEY = import.meta.env.VITE_GNEWS_API_KEY || '';
 
+const NEWS_API_BASE = 'https://newsapi.org/v2';
+const GNEWS_API_BASE = 'https://gnews.io/api/v4';
+
 const API_CONFIG = {
     newsApi: {
-        enabled: true // Завжди ввімкнено, нехай сервер розбирається
+        enabled: !!NEWS_API_KEY,
+        key: NEWS_API_KEY
     },
     gnews: {
-        enabled: true // Завжди ввімкнено
+        enabled: !!GNEWS_API_KEY,
+        key: GNEWS_API_KEY
     },
     newsData: {
         enabled: false
@@ -14,30 +19,66 @@ const API_CONFIG = {
 };
 
 function buildNewsApiUrl(query, category = 'all') {
+    if (!API_CONFIG.newsApi.enabled) {
+        return null;
+    }
+
+    if (category !== 'all' && !query) {
+        const params = new URLSearchParams({
+            category: category,
+            pageSize: 20
+        });
+        return `${NEWS_API_BASE}/top-headlines?${params.toString()}&apiKey=${API_CONFIG.newsApi.key}`;
+    }
+
+    let searchQuery = query || 'news';
+
+    if (category !== 'all' && query) {
+        searchQuery = `${query} ${category}`;
+    } else if (category !== 'all' && !query) {
+        searchQuery = category;
+    }
+
     const params = new URLSearchParams({
-        endpoint: 'newsapi', // Кажемо серверу, яке API ми хочемо
-        lang: 'uk',
+        q: searchQuery,
+        language: 'uk',
+        sortBy: 'publishedAt',
         pageSize: 20
     });
 
-    if (query) params.set('query', query);
-    if (category && category !== 'all') params.set('category', category);
-
-    // Звертаємось до файлу news.js
-    return `/.netlify/functions/news?${params.toString()}`;
+    return `${NEWS_API_BASE}/everything?${params.toString()}&apiKey=${API_CONFIG.newsApi.key}`;
 }
 
 function buildGNewsApiUrl(query, category = 'all') {
+    if (!API_CONFIG.gnews.enabled) {
+        return null;
+    }
+
+    const categoryMap = {
+        technology: 'technology',
+        sports: 'sports',
+        business: 'business',
+        entertainment: 'entertainment',
+        health: 'health',
+        science: 'science'
+    };
+
     const params = new URLSearchParams({
-        endpoint: 'gnews', // Кажемо серверу, що це GNews
         lang: 'uk',
-        max: 20
+        max: 20,
+        apikey: API_CONFIG.gnews.key
     });
 
-    if (query) params.set('query', query);
-    if (category && category !== 'all') params.set('category', category);
+    if (category !== 'all' && categoryMap[category]) {
+        params.set('topic', categoryMap[category]);
+        if (query) {
+            params.set('q', query);
+        }
+    } else {
+        params.set('q', query || 'news');
+    }
 
-    return `/.netlify/functions/news?${params.toString()}`;
+    return `${GNEWS_API_BASE}/search?${params.toString()}`;
 }
 
 function normalizeApiResponse(data, apiType) {
@@ -56,7 +97,7 @@ function normalizeApiResponse(data, apiType) {
             }))
         };
     }
-    // Для NewsAPI структура стандартна
+
     return data;
 }
 
@@ -69,8 +110,8 @@ function createPlaceholderImage(text) {
 }
 
 async function getMockNews(query, category) {
-    console.log('Використовуються Mock Data (API недоступне)');
     await new Promise(resolve => setTimeout(resolve, 500));
+
     const categories = {
         technology: 'Технології',
         sports: 'Спорт',
@@ -80,18 +121,8 @@ async function getMockNews(query, category) {
         science: 'Наука'
     };
 
-    const mockArticles = [
-        {
-            title: "Тестова новина (Mock Data)",
-            description: "Це заглушка, бо сервер не відповів або ключі не налаштовані.",
-            url: "#",
-            urlToImage: createPlaceholderImage('Mock News'),
-            source: { name: "System" },
-            publishedAt: new Date().toISOString(),
-            category: category === 'all' ? 'technology' : category
-        }
-    ];
-    
+    const mockArticles = [];
+
     const categoryTitles = {
         technology: [
             'Нові технології штучного інтелекту',
@@ -147,7 +178,7 @@ async function getMockNews(query, category) {
     };
 
     const sources = ['BBC', 'CNN', 'Local News'];
-    
+
     Object.keys(categoryTitles).forEach(cat => {
         categoryTitles[cat].forEach((title, index) => {
             const sourceIndex = index % sources.length;
@@ -170,9 +201,9 @@ async function getMockNews(query, category) {
             'Міжнародні новини',
             'Важливі події з усього світу'
         ];
-        
+
         const sources = ['BBC', 'CNN', 'Local News'];
-        
+
         generalTitles.forEach((title, index) => {
             const sourceIndex = index % sources.length;
             mockArticles.push({
@@ -195,76 +226,99 @@ async function getMockNews(query, category) {
 
     if (query) {
         const queryLower = query.toLowerCase();
-        filtered = filtered.filter(article => 
-            article.title.toLowerCase().includes(queryLower) ||
-            article.description.toLowerCase().includes(queryLower)
+        filtered = filtered.filter(article =>
+          article.title.toLowerCase().includes(queryLower) ||
+          article.description.toLowerCase().includes(queryLower)
         );
     }
 
     return {
         status: 'ok',
-        totalResults: mockArticles.length,
-        articles: mockArticles
+        totalResults: filtered.length,
+        articles: filtered
     };
 }
 
 export async function fetchNews(query = '', category = 'all') {
     const apiAttempts = [];
 
-    // Додаємо спроби у чергу
-    // Пріоритет: спочатку NewsAPI (краща якість), потім GNews
-    apiAttempts.push({ url: buildNewsApiUrl(query, category), type: 'newsapi', name: 'NewsAPI' });
-    apiAttempts.push({ url: buildGNewsApiUrl(query, category), type: 'gnews', name: 'GNews' });
+    if (API_CONFIG.newsApi.enabled) {
+        const newsApiUrl = buildNewsApiUrl(query, category);
+        if (newsApiUrl) {
+            apiAttempts.push({ url: newsApiUrl, type: 'newsapi', name: 'NewsAPI.org' });
+        }
+    }
+
+    if (API_CONFIG.gnews.enabled) {
+        const gnewsUrl = buildGNewsApiUrl(query, category);
+        if (gnewsUrl) {
+            apiAttempts.push({ url: gnewsUrl, type: 'gnews', name: 'GNews API' });
+        }
+    }
+
+    if (apiAttempts.length === 0) {
+        return await getMockNews(query, category);
+    }
 
     for (const apiAttempt of apiAttempts) {
         try {
-            console.log(`Спроба запиту до: ${apiAttempt.name}...`);
             const response = await fetch(apiAttempt.url);
 
             if (!response.ok) {
-                console.warn(`${apiAttempt.name} повернув помилку: ${response.status}`);
-                continue; // Пробуємо наступне API
+                if (response.status === 401 || response.status === 403 || response.status === 429) {
+                    continue;
+                }
+                continue;
             }
 
             const data = await response.json();
 
-            if (data.error) {
-                console.warn(`${apiAttempt.name} API Error: ${data.error}`);
+            if (data.status === 'error') {
                 continue;
             }
 
-            if (data.status === 'error' || (data.articles && data.articles.length === 0)) {
+            const normalizedData = normalizeApiResponse(data, apiAttempt.type);
+
+            if (!normalizedData.articles || normalizedData.articles.length === 0) {
                 continue;
             }
 
-            return normalizeApiResponse(data, apiAttempt.type);
+            if (category !== 'all') {
+                normalizedData.articles = normalizedData.articles.map(article => ({
+                    ...article,
+                    category: article.category || category
+                }));
+            }
+
+            return normalizedData;
 
         } catch (error) {
-            console.error(`Помилка під час запиту до ${apiAttempt.name}:`, error);
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                continue;
+            }
             continue;
         }
     }
 
-    // Якщо нічого не спрацювало — віддаємо Mock Data
     return await getMockNews(query, category);
 }
 
 export async function fetchNewsBySource(source) {
     try {
-        const params = new URLSearchParams({
-            endpoint: 'newsapi',
-            sources: source
-        });
+        if (!API_CONFIG.newsApi.enabled) {
+            return await getMockNews('', 'all');
+        }
 
-        const url = `/.netlify/functions/news?${params.toString()}`;
+        const url = `${NEWS_API_BASE}/everything?sources=${source}&apiKey=${API_CONFIG.newsApi.key}`;
         const response = await fetch(url);
 
-        if (!response.ok) throw new Error(`HTTP помилка! Статус: ${response.status}`);
+        if (!response.ok) {
+            throw new Error(`HTTP помилка! Статус: ${response.status}`);
+        }
 
         const data = await response.json();
         return normalizeApiResponse(data, 'newsapi');
     } catch (error) {
-        console.error(error);
-        return await getMockNews('', 'all');
+        throw new Error('Не вдалося завантажити новини з джерела.');
     }
 }
