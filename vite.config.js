@@ -23,7 +23,7 @@ function getBasePath() {
   
   // Для локальної розробки або ручного встановлення
   // ЗМІНІТЬ 'project' на назву вашого репозиторію
-  const repositoryName = 'project'; // ЗМІНІТЬ НА НАЗВУ ВАШОГО РЕПОЗИТОРІЮ
+  const repositoryName = ''; // ЗМІНІТЬ НА НАЗВУ ВАШОГО РЕПОЗИТОРІЮ
   return repositoryName ? `/${repositoryName}/` : '/';
 }
 

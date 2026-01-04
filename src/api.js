@@ -1,9 +1,6 @@
 const NEWS_API_KEY = import.meta.env.VITE_NEWS_API_KEY || '';
 const GNEWS_API_KEY = import.meta.env.VITE_GNEWS_API_KEY || '';
 
-const NEWS_API_BASE = 'https://newsapi.org/v2';
-const GNEWS_API_BASE = 'https://gnews.io/api/v4';
-
 const API_CONFIG = {
     newsApi: {
         enabled: !!NEWS_API_KEY,
@@ -23,30 +20,16 @@ function buildNewsApiUrl(query, category = 'all') {
         return null;
     }
 
-    if (category !== 'all' && !query) {
-        const params = new URLSearchParams({
-            category: category,
-            pageSize: 20
-        });
-        return `${NEWS_API_BASE}/top-headlines?${params.toString()}&apiKey=${API_CONFIG.newsApi.key}`;
-    }
-    
-    let searchQuery = query || 'news';
-    
-    if (category !== 'all' && query) {
-        searchQuery = `${query} ${category}`;
-    } else if (category !== 'all' && !query) {
-        searchQuery = category;
-    }
-    
     const params = new URLSearchParams({
-        q: searchQuery,
-        language: 'uk',
-        sortBy: 'publishedAt',
+        endpoint: 'newsapi',
+        lang: 'uk',
         pageSize: 20
     });
 
-    return `${NEWS_API_BASE}/everything?${params.toString()}&apiKey=${API_CONFIG.newsApi.key}`;
+    if (query) params.set('query', query);
+    if (category && category !== 'all') params.set('category', category);
+
+    return `/.netlify/functions/fetch-news?${params.toString()}`;
 }
 
 function buildGNewsApiUrl(query, category = 'all') {
@@ -54,31 +37,16 @@ function buildGNewsApiUrl(query, category = 'all') {
         return null;
     }
 
-    const categoryMap = {
-        technology: 'technology',
-        sports: 'sports',
-        business: 'business',
-        entertainment: 'entertainment',
-        health: 'health',
-        science: 'science'
-    };
-
     const params = new URLSearchParams({
+        endpoint: 'gnews',
         lang: 'uk',
-        max: 20,
-        apikey: API_CONFIG.gnews.key
+        max: 20
     });
 
-    if (category !== 'all' && categoryMap[category]) {
-        params.set('topic', categoryMap[category]);
-        if (query) {
-            params.set('q', query);
-        }
-    } else {
-        params.set('q', query || 'news');
-    }
+    if (query) params.set('query', query);
+    if (category && category !== 'all') params.set('category', category);
 
-    return `${GNEWS_API_BASE}/search?${params.toString()}`;
+    return `/.netlify/functions/fetch-news?${params.toString()}`;
 }
 
 function normalizeApiResponse(data, apiType) {
@@ -309,7 +277,12 @@ export async function fetchNewsBySource(source) {
             return await getMockNews('', 'all');
         }
 
-        const url = `${NEWS_API_BASE}/everything?sources=${source}&apiKey=${API_CONFIG.newsApi.key}`;
+        const params = new URLSearchParams({
+            endpoint: 'newsapi',
+            sources: source
+        });
+
+        const url = `/.netlify/functions/fetch-news?${params.toString()}`;
         const response = await fetch(url);
         
         if (!response.ok) {
