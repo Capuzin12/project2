@@ -28,7 +28,7 @@ function buildNewsApiUrl(query, category = 'all') {
             category: category,
             pageSize: 20
         });
-        return `${NEWS_API_BASE}/top-headlines?${params.toString()}&apiKey=${API_CONFIG.newsApi.key}`;
+        return `https://project2-khaki-three.vercel.app/api/news?${params.toString()}`;
     }
 
     let searchQuery = query || 'news';
@@ -46,7 +46,7 @@ function buildNewsApiUrl(query, category = 'all') {
         pageSize: 20
     });
 
-    return `${NEWS_API_BASE}/everything?${params.toString()}&apiKey=${API_CONFIG.newsApi.key}`;
+    return `https://project2-khaki-three.vercel.app/api/news?${params.toString()}`;
 }
 
 function buildGNewsApiUrl(query, category = 'all') {
