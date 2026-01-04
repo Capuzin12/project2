@@ -1,0 +1,4 @@
+
+command = "npm run dev"
+targetPort = 5173
+port = 4000
