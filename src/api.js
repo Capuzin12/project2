@@ -1,27 +1,22 @@
-const NEWS_API_KEY = import.meta.env.VITE_NEWS_API_KEY || '';
-const GNEWS_API_KEY = import.meta.env.VITE_GNEWS_API_KEY || '';
+// src/api.js
 
-const NEWS_API_BASE = 'https://newsapi.org/v2';
-const GNEWS_API_BASE = 'https://gnews.io/api/v4';
+// Адреса вашого бекенду на Vercel
+const BACKEND_URL = 'https://project2-khaki-three.vercel.app/api/news.js';
 
+// Конфігурація: Вмикаємо API примусово, бо перевірка ключів відбувається на сервері
 const API_CONFIG = {
     newsApi: {
-        enabled: !!NEWS_API_KEY,
-        key: NEWS_API_KEY
+        enabled: true
     },
     gnews: {
-        enabled: !!GNEWS_API_KEY,
-        key: GNEWS_API_KEY
+        enabled: true
     },
     newsData: {
         enabled: false
     }
 };
 
-const BACKEND_URL = 'https://project2-capuzins-projects.vercel.app/api/news';
-
 function buildNewsApiUrl(query, category = 'all') {
-    // Формуємо параметри
     const params = new URLSearchParams({
         endpoint: 'newsapi', // Кажемо бекенду використовувати NewsAPI
         lang: 'uk',
@@ -31,7 +26,6 @@ function buildNewsApiUrl(query, category = 'all') {
     if (query) params.set('query', query);
     if (category && category !== 'all') params.set('category', category);
 
-    // ПРАВИЛЬНА АДРЕСА (один раз https:// і без .js)
     return `${BACKEND_URL}?${params.toString()}`;
 }
 
@@ -49,6 +43,7 @@ function buildGNewsApiUrl(query, category = 'all') {
 }
 
 function normalizeApiResponse(data, apiType) {
+    // Якщо це GNews, приводимо структуру до формату NewsAPI
     if (apiType === 'gnews') {
         return {
             status: 'ok',
@@ -64,7 +59,6 @@ function normalizeApiResponse(data, apiType) {
             }))
         };
     }
-
     return data;
 }
 
@@ -76,7 +70,9 @@ function createPlaceholderImage(text) {
     return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
 }
 
+// --- MOCK DATA (ЗАГЛУШКА) ---
 async function getMockNews(query, category) {
+    console.log('⚠️ API недоступне або ліміт вичерпано. Використовуються Mock Data.');
     await new Promise(resolve => setTimeout(resolve, 500));
 
     const categories = {
@@ -152,7 +148,7 @@ async function getMockNews(query, category) {
             mockArticles.push({
                 title: title,
                 description: categoryDescriptions[cat] + ' ' + (index + 1),
-                url: `https://example.com/news/${cat}-${index + 1}`,
+                url: `#`,
                 urlToImage: createPlaceholderImage(categories[cat]),
                 source: { name: sources[sourceIndex] },
                 publishedAt: new Date(Date.now() - (index + 1) * 3600000).toISOString(),
@@ -169,14 +165,12 @@ async function getMockNews(query, category) {
             'Важливі події з усього світу'
         ];
 
-        const sources = ['BBC', 'CNN', 'Local News'];
-
         generalTitles.forEach((title, index) => {
             const sourceIndex = index % sources.length;
             mockArticles.push({
                 title: query ? `${query} - ${title}` : title,
                 description: 'Головні події з усього світу, які варто знати.',
-                url: `https://example.com/news/general-${index + 1}`,
+                url: `#`,
                 urlToImage: createPlaceholderImage('World News'),
                 source: { name: sources[sourceIndex] },
                 publishedAt: new Date(Date.now() - index * 3600000).toISOString(),
@@ -206,21 +200,15 @@ async function getMockNews(query, category) {
     };
 }
 
+// --- ОСНОВНА ФУНКЦІЯ ОТРИМАННЯ НОВИН ---
 export async function fetchNews(query = '', category = 'all') {
     const apiAttempts = [];
 
     if (API_CONFIG.newsApi.enabled) {
-        const newsApiUrl = buildNewsApiUrl(query, category);
-        if (newsApiUrl) {
-            apiAttempts.push({ url: newsApiUrl, type: 'newsapi', name: 'NewsAPI.org' });
-        }
+        apiAttempts.push({ url: buildNewsApiUrl(query, category), type: 'newsapi', name: 'NewsAPI' });
     }
-
     if (API_CONFIG.gnews.enabled) {
-        const gnewsUrl = buildGNewsApiUrl(query, category);
-        if (gnewsUrl) {
-            apiAttempts.push({ url: gnewsUrl, type: 'gnews', name: 'GNews API' });
-        }
+        apiAttempts.push({ url: buildGNewsApiUrl(query, category), type: 'gnews', name: 'GNews' });
     }
 
     if (apiAttempts.length === 0) {
@@ -232,15 +220,14 @@ export async function fetchNews(query = '', category = 'all') {
             const response = await fetch(apiAttempt.url);
 
             if (!response.ok) {
-                if (response.status === 401 || response.status === 403 || response.status === 429) {
-                    continue;
-                }
+                console.warn(`${apiAttempt.name} Error: ${response.status}`);
                 continue;
             }
 
             const data = await response.json();
 
-            if (data.status === 'error') {
+            if (data.error || data.status === 'error') {
+                console.warn(`${apiAttempt.name} API Error: ${data.message || data.error}`);
                 continue;
             }
 
@@ -260,9 +247,7 @@ export async function fetchNews(query = '', category = 'all') {
             return normalizedData;
 
         } catch (error) {
-            if (error.name === 'TypeError' && error.message.includes('fetch')) {
-                continue;
-            }
+            console.error(`Fetch Error (${apiAttempt.name}):`, error);
             continue;
         }
     }
@@ -270,13 +255,18 @@ export async function fetchNews(query = '', category = 'all') {
     return await getMockNews(query, category);
 }
 
+// --- ОТРИМАННЯ НОВИН ЗА ДЖЕРЕЛОМ ---
 export async function fetchNewsBySource(source) {
     try {
-        if (!API_CONFIG.newsApi.enabled) {
-            return await getMockNews('', 'all');
-        }
+        // Використовуємо наш проксі-бекенд замість прямого запиту
+        const params = new URLSearchParams({
+            endpoint: 'newsapi',
+            sources: source,
+            pageSize: 20
+        });
 
-        const url = `${NEWS_API_BASE}/everything?sources=${source}&apiKey=${API_CONFIG.newsApi.key}`;
+        const url = `${BACKEND_URL}?${params.toString()}`;
+
         const response = await fetch(url);
 
         if (!response.ok) {
@@ -284,8 +274,15 @@ export async function fetchNewsBySource(source) {
         }
 
         const data = await response.json();
+
+        if (data.error || data.status === 'error') {
+            throw new Error(data.message || 'API Error');
+        }
+
         return normalizeApiResponse(data, 'newsapi');
     } catch (error) {
-        throw new Error('Не вдалося завантажити новини з джерела.');
+        console.error('Помилка завантаження джерела:', error);
+        // Повертаємо пустий мок або помилку, яку обробить main.js
+        return await getMockNews('', 'all');
     }
 }
