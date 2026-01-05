@@ -17,7 +17,6 @@ function buildNewsApiUrl(query, category = 'all') {
 
     return `${BACKEND_URL}?${params.toString()}`;
 }
-
 function buildGNewsApiUrl(query, category = 'all') {
     const params = new URLSearchParams({
         endpoint: 'gnews',
