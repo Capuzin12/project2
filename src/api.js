@@ -18,67 +18,34 @@ const API_CONFIG = {
     }
 };
 
+const BACKEND_URL = 'https://project2-capuzins-projects.vercel.app/api/news';
+
 function buildNewsApiUrl(query, category = 'all') {
-    if (!API_CONFIG.newsApi.enabled) {
-        return null;
-    }
-
-    if (category !== 'all' && !query) {
-        const params = new URLSearchParams({
-            category: category,
-            pageSize: 20
-        });
-        return `https://project2-khaki-three.vercel.app/api/news?${params.toString()}`;
-    }
-
-    let searchQuery = query || 'news';
-
-    if (category !== 'all' && query) {
-        searchQuery = `${query} ${category}`;
-    } else if (category !== 'all' && !query) {
-        searchQuery = category;
-    }
-
+    // Формуємо параметри
     const params = new URLSearchParams({
-        q: searchQuery,
-        language: 'uk',
-        sortBy: 'publishedAt',
+        endpoint: 'newsapi', // Кажемо бекенду використовувати NewsAPI
+        lang: 'uk',
         pageSize: 20
     });
 
-    return `https://project2-khaki-three.vercel.app/api/news?${params.toString()}`;
+    if (query) params.set('query', query);
+    if (category && category !== 'all') params.set('category', category);
+
+    // ПРАВИЛЬНА АДРЕСА (один раз https:// і без .js)
+    return `${BACKEND_URL}?${params.toString()}`;
 }
 
 function buildGNewsApiUrl(query, category = 'all') {
-    if (!API_CONFIG.gnews.enabled) {
-        return null;
-    }
-
-    const categoryMap = {
-        technology: 'technology',
-        sports: 'sports',
-        business: 'business',
-        entertainment: 'entertainment',
-        health: 'health',
-        science: 'science'
-    };
-
     const params = new URLSearchParams({
+        endpoint: 'gnews', // Кажемо бекенду використовувати GNews
         lang: 'uk',
-        max: 20,
-        apikey: API_CONFIG.gnews.key
+        max: 20
     });
 
-    if (category !== 'all' && categoryMap[category]) {
-        params.set('topic', categoryMap[category]);
-        if (query) {
-            params.set('q', query);
-        }
-    } else {
-        params.set('q', query || 'news');
-    }
+    if (query) params.set('query', query);
+    if (category && category !== 'all') params.set('category', category);
 
-    return `${GNEWS_API_BASE}/search?${params.toString()}`;
+    return `${BACKEND_URL}?${params.toString()}`;
 }
 
 function normalizeApiResponse(data, apiType) {
