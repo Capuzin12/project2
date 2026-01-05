@@ -124,7 +124,7 @@ async function getMockNews(query, category) {
         science: 'Наукові відкриття та дослідження.'
     };
 
-    const sources = ['BBC', 'CNN', 'Local News'];
+    const sources = ['BBC', 'Pravda', 'Dou'];
 
     Object.keys(categoryTitles).forEach(cat => {
         categoryTitles[cat].forEach((title, index) => {
