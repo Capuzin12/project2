@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const { endpoint = 'gnews', query, category, sources, lang = 'uk', pageSize = 20, max = 20 } = req.query;
+  const { endpoint = 'gnews', query, category, sources, pageSize = 20, max = 20 } = req.query;
 
   const NEWS_API_KEY = process.env.NEWS_API_KEY;
   const GNEWS_API_KEY = process.env.GNEWS_API_KEY;
@@ -19,36 +19,31 @@ export default async function handler(req, res) {
 
   let url = '';
 
-  // --- ЛОГІКА GNEWS (Виправлена) ---
+  // --- ЛОГІКА GNEWS ---
   if (endpoint === 'gnews') {
     const params = new URLSearchParams({
       apikey: GNEWS_API_KEY,
-      lang: lang,
       max: max
     });
 
-    // ВАЖЛИВО: GNews розділяє логіку
+    if (!category || category === 'all') {
+      params.set('lang', 'uk');
+    }
     if (query) {
-      // 1. Якщо є ПОШУК -> використовуємо /search
-      // Цей endpoint вимагає параметр 'q'
       url = 'https://gnews.io/api/v4/search';
       params.set('q', query);
-      // Примітка: /search у GNews часто ігнорує 'topic', тому ми його тут не додаємо
     } else if (category && category !== 'all') {
-      // 2. Якщо є КАТЕГОРІЯ (і немає пошуку) -> використовуємо /top-headlines
-      // Цей endpoint вимагає 'topic'
       url = 'https://gnews.io/api/v4/top-headlines';
       params.set('topic', category);
     } else {
-      // 3. Якщо нічого немає (Головна) -> використовуємо /top-headlines
       url = 'https://gnews.io/api/v4/top-headlines';
-      // За замовчуванням GNews повертає breaking-news
     }
 
     url += `?${params.toString()}`;
 
   } else {
-    // --- ЛОГІКА NEWSAPI ---
+    const lang = 'uk';
+
     if (sources) {
       url = `https://newsapi.org/v2/everything?sources=${sources}&apiKey=${NEWS_API_KEY}`;
     } else if (category && category !== 'all') {
@@ -60,12 +55,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log(`Fetching: ${url}`); // Лог для Vercel Dashboard
     const response = await fetch(url);
     const data = await response.json();
 
     if (!response.ok) {
-      console.error(`API Error:`, data);
       return res.status(response.status).json({ error: data.message || 'External API Error' });
     }
 

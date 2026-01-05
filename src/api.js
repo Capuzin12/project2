@@ -1,25 +1,14 @@
-// src/api.js
-
-// Адреса вашого бекенду на Vercel
 const BACKEND_URL = 'https://project2-khaki-three.vercel.app/api/news.js';
 
-// Конфігурація: Вмикаємо API примусово, бо перевірка ключів відбувається на сервері
 const API_CONFIG = {
-    newsApi: {
-        enabled: true
-    },
-    gnews: {
-        enabled: true
-    },
-    newsData: {
-        enabled: false
-    }
+    newsApi: { enabled: true },
+    gnews: { enabled: true },
+    newsData: { enabled: false }
 };
 
 function buildNewsApiUrl(query, category = 'all') {
     const params = new URLSearchParams({
-        endpoint: 'newsapi', // Кажемо бекенду використовувати NewsAPI
-        lang: 'uk',
+        endpoint: 'newsapi',
         pageSize: 20
     });
 
@@ -31,8 +20,7 @@ function buildNewsApiUrl(query, category = 'all') {
 
 function buildGNewsApiUrl(query, category = 'all') {
     const params = new URLSearchParams({
-        endpoint: 'gnews', // Кажемо бекенду використовувати GNews
-        lang: 'uk',
+        endpoint: 'gnews',
         max: 20
     });
 
@@ -43,7 +31,6 @@ function buildGNewsApiUrl(query, category = 'all') {
 }
 
 function normalizeApiResponse(data, apiType) {
-    // Якщо це GNews, приводимо структуру до формату NewsAPI
     if (apiType === 'gnews') {
         return {
             status: 'ok',
@@ -70,7 +57,6 @@ function createPlaceholderImage(text) {
     return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
 }
 
-// --- MOCK DATA (ЗАГЛУШКА) ---
 async function getMockNews(query, category) {
     await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -199,7 +185,7 @@ async function getMockNews(query, category) {
     };
 }
 
-// --- ОСНОВНА ФУНКЦІЯ ОТРИМАННЯ НОВИН ---
+// ОСНОВНА ФУНКЦІЯ
 export async function fetchNews(query = '', category = 'all') {
     const apiAttempts = [];
 
@@ -217,71 +203,42 @@ export async function fetchNews(query = '', category = 'all') {
     for (const apiAttempt of apiAttempts) {
         try {
             const response = await fetch(apiAttempt.url);
-
-            if (!response.ok) {
-                console.warn(`${apiAttempt.name} Error: ${response.status}`);
-                continue;
-            }
+            if (!response.ok) continue;
 
             const data = await response.json();
-
-            if (data.error || data.status === 'error') {
-                console.warn(`${apiAttempt.name} API Error: ${data.message || data.error}`);
-                continue;
-            }
+            if (data.error || (data.articles && data.articles.length === 0)) continue;
 
             const normalizedData = normalizeApiResponse(data, apiAttempt.type);
 
-            if (!normalizedData.articles || normalizedData.articles.length === 0) {
-                continue;
+            if (normalizedData.articles && normalizedData.articles.length > 0) {
+                // Додаємо категорію до статей, якщо API не повернуло
+                if (category !== 'all') {
+                    normalizedData.articles = normalizedData.articles.map(a => ({...a, category}));
+                }
+                return normalizedData;
             }
-
-            if (category !== 'all') {
-                normalizedData.articles = normalizedData.articles.map(article => ({
-                    ...article,
-                    category: article.category || category
-                }));
-            }
-
-            return normalizedData;
 
         } catch (error) {
-            console.error(`Fetch Error (${apiAttempt.name}):`, error);
-            continue;
+            console.error(error);
         }
     }
 
     return await getMockNews(query, category);
 }
 
-// --- ОТРИМАННЯ НОВИН ЗА ДЖЕРЕЛОМ ---
 export async function fetchNewsBySource(source) {
     try {
-        // Використовуємо наш проксі-бекенд замість прямого запиту
         const params = new URLSearchParams({
             endpoint: 'newsapi',
             sources: source,
             pageSize: 20
         });
-
         const url = `${BACKEND_URL}?${params.toString()}`;
-
         const response = await fetch(url);
-
-        if (!response.ok) {
-            throw new Error(`HTTP помилка! Статус: ${response.status}`);
-        }
-
+        if (!response.ok) throw new Error('API Error');
         const data = await response.json();
-
-        if (data.error || data.status === 'error') {
-            throw new Error(data.message || 'API Error');
-        }
-
         return normalizeApiResponse(data, 'newsapi');
-    } catch (error) {
-        console.error('Помилка завантаження джерела:', error);
-        // Повертаємо пустий мок або помилку, яку обробить main.js
+    } catch (e) {
         return await getMockNews('', 'all');
     }
 }
