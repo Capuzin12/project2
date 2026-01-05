@@ -72,7 +72,6 @@ function createPlaceholderImage(text) {
 
 // --- MOCK DATA (ЗАГЛУШКА) ---
 async function getMockNews(query, category) {
-    console.log('⚠️ API недоступне або ліміт вичерпано. Використовуються Mock Data.');
     await new Promise(resolve => setTimeout(resolve, 500));
 
     const categories = {
