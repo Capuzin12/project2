@@ -9,23 +9,17 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // Отримуємо параметри від фронтенду
   const { endpoint = 'gnews', query, category, sources, lang = 'uk', pageSize = 20, max = 20 } = req.query;
 
   const NEWS_API_KEY = process.env.NEWS_API_KEY;
   const GNEWS_API_KEY = process.env.GNEWS_API_KEY;
 
-  // Перевірка наявності ключів
-  if (endpoint === 'newsapi' && !NEWS_API_KEY) {
-    return res.status(401).json({ error: 'MISSING_KEY', message: 'NEWS_API_KEY missing' });
-  }
-  if (endpoint === 'gnews' && !GNEWS_API_KEY) {
-    return res.status(401).json({ error: 'MISSING_KEY', message: 'GNEWS_API_KEY missing' });
-  }
+  if (endpoint === 'newsapi' && !NEWS_API_KEY) return res.status(401).json({ error: 'MISSING_KEY', message: 'NEWS_API_KEY missing' });
+  if (endpoint === 'gnews' && !GNEWS_API_KEY) return res.status(401).json({ error: 'MISSING_KEY', message: 'GNEWS_API_KEY missing' });
 
   let url = '';
 
-  // --- ЛОГІКА GNEWS ---
+  // --- ЛОГІКА GNEWS (Виправлена) ---
   if (endpoint === 'gnews') {
     const params = new URLSearchParams({
       apikey: GNEWS_API_KEY,
@@ -33,23 +27,25 @@ export default async function handler(req, res) {
       max: max
     });
 
-    // 1. Якщо обрана категорія -> додаємо параметр 'topic'
-    if (category && category !== 'all') {
-      params.set('topic', category);
-    }
-
-    // 2. Обробка пошукового запиту 'q'
+    // ВАЖЛИВО: GNews розділяє логіку
     if (query) {
-      // Якщо користувач щось ввів -> шукаємо це
+      // 1. Якщо є ПОШУК -> використовуємо /search
+      // Цей endpoint вимагає параметр 'q'
+      url = 'https://gnews.io/api/v4/search';
       params.set('q', query);
-    } else if (!category || category === 'all') {
-      // ВАЖЛИВО: GNews вимагає хоча б один параметр (q або topic).
-      // Якщо немає ні категорії, ні пошуку -> ставимо дефолтний пошук 'news'
-      params.set('q', 'news');
+      // Примітка: /search у GNews часто ігнорує 'topic', тому ми його тут не додаємо
+    } else if (category && category !== 'all') {
+      // 2. Якщо є КАТЕГОРІЯ (і немає пошуку) -> використовуємо /top-headlines
+      // Цей endpoint вимагає 'topic'
+      url = 'https://gnews.io/api/v4/top-headlines';
+      params.set('topic', category);
+    } else {
+      // 3. Якщо нічого немає (Головна) -> використовуємо /top-headlines
+      url = 'https://gnews.io/api/v4/top-headlines';
+      // За замовчуванням GNews повертає breaking-news
     }
-    // (Якщо є категорія, але немає query -> 'q' не додаємо, GNews це дозволяє)
 
-    url = `https://gnews.io/api/v4/search?${params.toString()}`;
+    url += `?${params.toString()}`;
 
   } else {
     // --- ЛОГІКА NEWSAPI ---
@@ -64,12 +60,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log(`Fetching: ${url}`); // Лог для Vercel Dashboard
     const response = await fetch(url);
     const data = await response.json();
 
     if (!response.ok) {
-      // Логування помилки для налагодження (видно у Vercel logs)
-      console.error(`External API Error (${endpoint}):`, data);
+      console.error(`API Error:`, data);
       return res.status(response.status).json({ error: data.message || 'External API Error' });
     }
 
